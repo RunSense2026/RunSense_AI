@@ -5,6 +5,9 @@ from db import engine
 from run_schema import RunData
 from llm_service import create_message
 
+from analysis_service import analyze_run
+from prompt_service import build_prompt
+
 app = FastAPI(
     title="RunSense AI Server",
     version="0.1.0"
