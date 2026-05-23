@@ -8,6 +8,8 @@ from llm_service import create_message
 from analysis_service import analyze_run
 from prompt_service import build_prompt
 
+from llm_service import create_coaching_message
+
 app = FastAPI(
     title="RunSense AI Server",
     version="0.1.0"
@@ -33,15 +35,19 @@ def db_test():
 
 @app.post("/ai-test")
 def ai_test(data: RunData):
-    try:
-        coaching_message = create_message(data)
-        return {
-            "message": coaching_message
-        }
-    except Exception as e:
-        return {
-            "error": str(e)
-        }
+
+    analysis = analyze_run(data)
+
+    message = create_coaching_message(
+        data,
+        analysis
+    )
+
+    return {
+        "status": analysis["status"],
+        "issues": analysis["issues"],
+        "message": message
+    }
 
 @app.post("/runs")
 def create_run(data: RunData):
