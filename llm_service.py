@@ -27,3 +27,24 @@ def create_coaching_message(data, analysis):
     response = model.generate_content(prompt)
 
     return response.text
+
+# Gemini 오류 처리
+
+def create_coaching_message(data, analysis):
+
+    prompt = build_prompt(data, analysis)
+
+    try:
+
+        response = model.generate_content(prompt)
+
+        if not response.text:
+            return "현재 페이스를 유지해보세요."
+
+        return response.text.strip()
+
+    except Exception as e:
+
+        print("Gemini 오류:", e)
+
+        return "러닝 리듬을 안정적으로 유지해보세요."

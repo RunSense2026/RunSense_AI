@@ -10,6 +10,8 @@ from prompt_service import build_prompt
 
 from llm_service import create_coaching_message
 
+from fastapi import HTTPException
+
 app = FastAPI(
     title="RunSense AI Server",
     version="0.1.0"
@@ -51,11 +53,26 @@ def ai_test(data: RunData):
 
 @app.post("/runs")
 def create_run(data: RunData):
+    try:
+        analysis = analyze_run(data)
 
-    return {
-        "message": "러닝 기록 저장 완료"
-    }
+        message = create_coaching_message(
+            data,
+            analysis
+        )
 
+        return {
+            "message": "러닝 기록 저장 완료",
+            "status": analysis["status"],
+            "issues": analysis["issues"],
+            "coaching_message": message
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 @app.get("/runs")
 def read_runs():
