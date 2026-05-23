@@ -39,3 +39,18 @@ def ai_test(data: RunData):
         return {
             "error": str(e)
         }
+
+@app.post("/runs")
+def create_run(data: RunData):
+
+    return {
+        "message": "러닝 기록 저장 완료"
+    }
+
+
+@app.get("/runs")
+def read_runs():
+
+    return {
+        "message": "전체 기록 조회"
+    }
