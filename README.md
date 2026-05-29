@@ -6,71 +6,6 @@
 
 RunSense 프로젝트의 AI 코칭 서버입니다.
 
-현재 버전은 아래 기능들을 중심으로 구현되어 있습니다.
-
-```text
-러닝 히스토리 구조화
-학습 기록 CRUD 개발 및 API 작성
-프롬프트 설계 및 튜닝
-Gemini LLM API 연동
-오류 처리 및 예외 케이스 처리
-```
-
----
-
-# 현재 구현 범위
-
-## 데이터
-
-```text
-AI 코칭 기록 저장
-AI 코칭 기록 조회
-AI 코칭 기록 수정
-AI 코칭 기록 삭제
-Supabase PostgreSQL 연동
-기존 running_activity 테이블 연동
-기존 ai_coaching 테이블 연동
-```
-
----
-
-## AI / LLM
-
-```text
-러닝 데이터 규칙 기반 분석
-Gemini API 연동
-AI 러닝 코칭 문장 생성
-프롬프트 설계 및 튜닝
-Fallback 메시지 처리
-```
-
----
-
-## 서버
-
-```text
-FastAPI 서버 구축
-Swagger API 문서 자동 생성
-Pydantic 기반 JSON 검증
-예외 처리 및 오류 응답 처리
-```
-
----
-
-# 추후 구현 예정
-
-```text
-텍스트 -> 음성 변환 모듈 개발
-음질, 발음, 속도 조정
-백엔드 데이터 흐름 연결
-앱 화면과 인터랙션 연결
-Spring Boot 연동
-React Native 연동
-실시간 센서 데이터 처리
-```
-
----
-
 # 스택
 
 * Python
@@ -79,77 +14,9 @@ React Native 연동
 * SQLAlchemy
 * PostgreSQL / Supabase
 * Gemini API
+* gTTS
 * Pydantic
 
----
-
-# 폴더 구조
-
-```text
-RunSense_AI/
-├── main.py
-├── db.py
-├── run_model.py
-├── run_schema.py
-├── crud.py
-├── analysis_service.py
-├── prompt_service.py
-├── llm_service.py
-├── tts_service.py
-├── requirements.txt
-├── .env.example
-├── .gitignore
-└── README.md
-```
-
----
-
-# 파일 역할
-
-| 파일                    | 역할                     |
-| --------------------- | ---------------------- |
-| `main.py`             | FastAPI API 관리         |
-| `db.py`               | Supabase PostgreSQL 연결 |
-| `run_model.py`        | ai_coaching 테이블 모델     |
-| `run_schema.py`       | 요청/응답 JSON 구조          |
-| `crud.py`             | AI 코칭 CRUD 처리          |
-| `analysis_service.py` | 러닝 데이터 분석              |
-| `prompt_service.py`   | Gemini 프롬프트 생성         |
-| `llm_service.py`      | Gemini API 호출 및 오류 처리  |
-| `tts_service.py`      | 추후 TTS 기능 확장용          |
-| `requirements.txt`    | Python 라이브러리 목록        |
-| `.env.example`        | 환경변수 예시                |
-| `.gitignore`          | GitHub 업로드 제외 파일 설정    |
-
----
-
-# 현재 DB 구조
-
-## users
-
-```text
-사용자 계정 정보 저장
-```
-
-## running_activity
-
-```text
-러닝 활동 기록 저장
-```
-
-## foot_sensor_data
-
-```text
-족압 및 착지 데이터 저장
-```
-
-## ai_coaching
-
-```text
-AI 코칭 결과 저장
-```
-
----
 
 # 시작하기
 
@@ -250,7 +117,6 @@ POST /ai/test
 ```json
 {
   "activity_id": 3,
-  "user_id": 1,
   "pace": 330,
   "heart_rate": 178,
   "cadence": 155,
@@ -268,9 +134,27 @@ POST /ai/test
     "과회내 경향",
     "뒤꿈치 착지 비율 높음"
   ],
-  "feedback_test": "숨을 깊게 쉬며 페이스를 조금 낮춰보세요.",
+  "feedback_text": "숨을 깊게 쉬며 페이스를 조금 낮춰보세요.",
   "focus_point": "호흡 안정과 페이스 조절",
-  "rec_exercise": "가벼운 조깅과 호흡 조절 훈련"
+  "rec_exercise": "가벼운 조깅과 호흡 조절 훈련",
+  "voice_file": "/audio/coach_xxxx.mp3"
+}
+```
+
+---
+
+## TTS 테스트
+
+```text
+POST /tts/test
+```
+
+응답 예시
+
+```json
+{
+  "text": "호흡을 안정시켜보세요",
+  "voice_file": "/audio/coach_xxxx.mp3"
 }
 ```
 
@@ -282,12 +166,28 @@ POST /ai/test
 POST /ai/coaching
 ```
 
+AI 코칭 텍스트는 DB에 저장되며,
+
+```text
+feedback_text
+focus_point
+rec_exercise
+```
+
+음성 파일 경로는 응답에만 포함됩니다.
+
 ---
 
 ## AI 코칭 전체 조회
 
 ```text
 GET /ai/coaching
+```
+
+특정 러닝 활동 조회
+
+```text
+GET /ai/coaching?activity_id=3
 ```
 
 ---
@@ -314,29 +214,55 @@ PATCH /ai/coaching/{coaching_id}
 DELETE /ai/coaching/{coaching_id}
 ```
 
----
 
-# 전체 흐름
+# Git 컨벤션
+
+## 브랜치 규칙
 
 ```text
-앱 / Spring Boot
-↓
-running_activity 생성
-↓
-foot_sensor_data 저장
-↓
-FastAPI(main.py)
-↓
-러닝 데이터 분석(analysis_service.py)
-↓
-프롬프트 생성(prompt_service.py)
-↓
-Gemini 호출(llm_service.py)
-↓
-ai_coaching 저장(crud.py)
-↓
-응답 반환
+feat/기능명
+fix/버그명
+refactor/기능명
+docs/readme
 ```
+
+예시
+
+```text
+feat/ai-coaching
+feat/tts
+fix/gemini-error
+```
+
+---
+
+## 커밋 규칙
+
+| 타입       | 설명    |
+| -------- | ----- |
+| feat     | 기능 추가 |
+| fix      | 버그 수정 |
+| refactor | 리팩토링  |
+| docs     | 문서 수정 |
+| chore    | 기타 작업 |
+
+예시
+
+```text
+feat: AI 코칭 API 구현
+feat: Gemini API 연동
+feat: TTS 테스트 API 구현
+fix: Foreign Key 오류 수정
+docs: README 업데이트
+```
+
+---
+
+## PR 규칙
+
+* develop 브랜치로 PR 생성
+* 최소 1명 이상 리뷰
+* Squash Merge 사용
 
 ---
 
@@ -351,4 +277,5 @@ ai_coaching 저장(crud.py)
 venv/
 __pycache__/
 *.pyc
+audio/*.mp3
 ```
