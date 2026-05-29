@@ -26,22 +26,27 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="RunSense AI Coaching Server",
-    version="1.0.0",
+    version="1.2.0",
 )
 
 app.mount("/audio", StaticFiles(directory="audio"), name="audio")
+
+
 @app.get("/")
 def home():
     return {"message": "RunSense AI Coaching Server Running"}
+
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
+
 @app.get("/db-test")
 def db_test():
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
+
     return {"database": "connected"}
 
 
@@ -59,19 +64,23 @@ def tts_test(text: str):
 def ai_test(data: CoachingRequest):
     analysis = analyze_run(data)
     feedback_text = create_coaching_message(data, analysis)
+    voice_file = create_tts_file(feedback_text)
 
     return {
         "issues": analysis["issues"],
-        "feedback_test": feedback_text,
+        "feedback_text": feedback_text,
         "focus_point": analysis["focus_point"],
         "rec_exercise": analysis["rec_exercise"],
+        "voice_file": voice_file,
     }
 
-@app.post("/ai/coaching", response_model=CoachingResponse)
+
+@app.post("/ai/coaching", response_model=CoachingWithVoiceResponse)
 def create_coaching(data: CoachingRequest, db: Session = Depends(get_db)):
     try:
         analysis = analyze_run(data)
         feedback_text = create_coaching_message(data, analysis)
+        voice_file = create_tts_file(feedback_text)
 
         coaching = create_ai_coaching(
             db=db,
@@ -81,7 +90,14 @@ def create_coaching(data: CoachingRequest, db: Session = Depends(get_db)):
             rec_exercise=analysis["rec_exercise"],
         )
 
-        return coaching
+        return {
+            "coaching_id": coaching.coaching_id,
+            "activity_id": coaching.activity_id,
+            "feedback_text": coaching.feedback_text,
+            "focus_point": coaching.focus_point,
+            "rec_exercise": coaching.rec_exercise,
+            "voice_file": voice_file,
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
