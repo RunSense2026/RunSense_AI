@@ -102,13 +102,14 @@ def create_coaching(data: CoachingRequest, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/ai/coaching", response_model=list[CoachingResponse])
 def read_coachings(
-    user_id: int | None = Query(None),
     activity_id: int | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    return get_ai_coachings(db, user_id=user_id, activity_id=activity_id)
+    return get_ai_coachings(db, activity_id=activity_id)
+
 
 @app.get("/ai/coaching/{coaching_id}", response_model=CoachingResponse)
 def read_coaching(coaching_id: int, db: Session = Depends(get_db)):
@@ -119,6 +120,7 @@ def read_coaching(coaching_id: int, db: Session = Depends(get_db)):
 
     return coaching
 
+
 @app.patch("/ai/coaching/{coaching_id}", response_model=CoachingResponse)
 def update_coaching(coaching_id: int, data: CoachingUpdate, db: Session = Depends(get_db)):
     coaching = get_ai_coaching(db, coaching_id)
@@ -128,6 +130,7 @@ def update_coaching(coaching_id: int, data: CoachingUpdate, db: Session = Depend
 
     return update_ai_coaching(db, coaching, data)
 
+
 @app.delete("/ai/coaching/{coaching_id}")
 def delete_coaching(coaching_id: int, db: Session = Depends(get_db)):
     coaching = get_ai_coaching(db, coaching_id)
@@ -136,4 +139,8 @@ def delete_coaching(coaching_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="삭제할 AI 코칭 기록을 찾을 수 없습니다.")
 
     delete_ai_coaching(db, coaching)
-    return {"message": "AI 코칭 기록이 삭제되었습니다.", "coaching_id": coaching_id}
+
+    return {
+        "message": "AI 코칭 기록이 삭제되었습니다.",
+        "coaching_id": coaching_id,
+    }
