@@ -1,5 +1,5 @@
 def build_coaching_prompt(data, analysis: dict) -> str:
-    return f'''
+    return f"""
 너는 러닝 중인 사용자에게 짧게 말해주는 AI 러닝 코치다.
 
 조건:
@@ -15,12 +15,13 @@ def build_coaching_prompt(data, analysis: dict) -> str:
 
 러닝 데이터:
 - activity_id: {data.activity_id}
-- user_id: {data.user_id}
 - 페이스: {data.pace}
 - 심박수: {data.heart_rate}
 - 케이던스: {data.cadence}
+- 발 방향: {data.foot_side}
 - 회내 유형: {data.pronation_type}
 - 뒤꿈치 착지 비율: {data.heel_strike_rate}
+- 히트맵 데이터: {data.hitmap_json}
 
 서버 분석:
 - 문제점: {", ".join(analysis["issues"])}
@@ -28,18 +29,28 @@ def build_coaching_prompt(data, analysis: dict) -> str:
 - 추천 운동: {analysis["rec_exercise"]}
 
 짧은 코칭 문장만 출력해라.
-'''.strip()
+""".strip()
+
 
 def fallback_message(analysis: dict) -> str:
     issues = analysis.get("issues", [])
 
     if "심박수 높음" in issues:
         return "심박이 높습니다. 호흡을 안정시켜보세요."
+
     if "케이던스 낮음" in issues:
         return "보폭을 줄이고 발걸음을 가볍게 해보세요."
+
     if "과회내 경향" in issues:
         return "발목이 안쪽으로 무너지지 않게 신경 써보세요."
-    if "뒤꿈치 착지 비율 높음" in issues:
+
+    if "회외 경향" in issues:
+        return "발바닥 전체로 균형 있게 착지해보세요."
+
+    if "뒤꿈치 착지 비율 높음" in issues or "뒤꿈치 압력 집중" in issues:
         return "발을 조금 더 부드럽게 내려놓아보세요."
+
+    if "앞발 압력 집중" in issues:
+        return "앞발 부담을 줄이고 보폭을 안정시켜보세요."
 
     return "현재 리듬을 안정적으로 유지해보세요."
