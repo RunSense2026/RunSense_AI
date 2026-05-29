@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -28,6 +29,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+app.mount("/audio", StaticFiles(directory="audio"), name="audio")
 @app.get("/")
 def home():
     return {"message": "RunSense AI Coaching Server Running"}
