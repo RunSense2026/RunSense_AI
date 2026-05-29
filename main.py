@@ -3,9 +3,16 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db
-from run_schema import CoachingRequest, CoachingResponse, CoachingUpdate
+from run_schema import (
+    CoachingRequest,
+    CoachingResponse,
+    CoachingUpdate,
+    CoachingWithVoiceResponse,
+    TTSResponse,
+)
 from analysis_service import analyze_run
 from llm_service import create_coaching_message
+from tts_service import create_tts_file
 from crud import (
     create_ai_coaching,
     get_ai_coaching,
@@ -34,6 +41,17 @@ def db_test():
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
     return {"database": "connected"}
+
+
+@app.post("/tts/test", response_model=TTSResponse)
+def tts_test(text: str):
+    voice_file = create_tts_file(text)
+
+    return {
+        "text": text,
+        "voice_file": voice_file,
+    }
+
 
 @app.post("/ai/test")
 def ai_test(data: CoachingRequest):
