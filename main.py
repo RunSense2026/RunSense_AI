@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Path, Body
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -22,6 +22,7 @@ from crud import (
     delete_ai_coaching,
 )
 
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -34,69 +35,19 @@ app.mount("/audio", StaticFiles(directory="audio"), name="audio")
 
 
 ERROR_RESPONSES = {
-    400: {
-        "description": "잘못된 요청 데이터",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "요청 데이터가 올바르지 않습니다."
-                }
-            }
-        },
-    },
-    404: {
-        "description": "요청한 데이터를 찾을 수 없음",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "요청한 데이터를 찾을 수 없습니다."
-                }
-            }
-        },
-    },
-    422: {
-        "description": "요청 Body 검증 실패",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": [
-                        {
-                            "loc": ["body", "heart_rate"],
-                            "msg": "Input should be a valid integer",
-                            "type": "int_parsing",
-                        }
-                    ]
-                }
-            }
-        },
-    },
-    500: {
-        "description": "서버 내부 오류",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "서버 내부 오류가 발생했습니다."
-                }
-            }
-        },
-    },
+    400: {"description": "잘못된 요청 데이터"},
+    404: {"description": "요청한 데이터를 찾을 수 없음"},
+    422: {"description": "요청 Body 또는 파라미터 검증 실패"},
+    500: {"description": "서버 내부 오류"},
 }
 
 
-@app.get(
-    "/",
-    summary="서버 기본 상태 확인",
-    description="RunSense AI Coaching Server가 실행 중인지 확인합니다.",
-)
+@app.get("/", summary="서버 기본 상태 확인")
 def home():
     return {"message": "RunSense AI Coaching Server Running"}
 
 
-@app.get(
-    "/health",
-    summary="서버 헬스 체크",
-    description="배포 환경에서 서버 상태를 확인하기 위한 헬스 체크 API입니다.",
-)
+@app.get("/health", summary="서버 헬스 체크")
 def health():
     return {"status": "ok"}
 
@@ -108,17 +59,31 @@ def health():
     description="""
 러닝 데이터와 족압 센서 데이터를 기반으로 AI 코칭을 생성합니다.
 
-처리 과정:
-1. 러닝 데이터 수신
-2. 심박수, 케이던스, 족압 데이터 분석
-3. Gemini 기반 코칭 문장 생성
-4. TTS 음성 파일 생성
-5. ai_coaching 테이블 저장
-6. 코칭 결과 및 음성 파일 경로 반환
+입력 데이터:
+- activity_id: running_activity 테이블에 존재하는 러닝 ID
+- pace: 페이스
+- heart_rate: 심박수
+- cadence: 케이던스
+- foot_side: left 또는 right
+- pronation_type: overpronation 또는 supination
+- heel_strike_rate: 뒤꿈치 착지 비율
+- hitmap_json: 5개 FSR 센서 데이터
 
-주의:
-- activity_id는 running_activity 테이블에 존재하는 값이어야 합니다.
-- hitmap_json은 5개 센서 규격을 사용합니다.
+hitmap_json 형식:
+{
+  "forefoot_left": 20,
+  "forefoot_right": 25,
+  "midfoot_left": 18,
+  "midfoot_right": 17,
+  "heel": 20
+}
+
+처리 과정:
+1. 러닝 데이터 분석
+2. Gemini 기반 코칭 생성
+3. TTS 음성 파일 생성
+4. ai_coaching 테이블 저장
+5. 코칭 결과 반환
 """,
     responses={
         200: {
@@ -169,9 +134,6 @@ def create_coaching(data: CoachingRequest, db: Session = Depends(get_db)):
             detail="존재하지 않는 activity_id입니다. running_activity를 먼저 생성해주세요.",
         )
 
-    except HTTPException:
-        raise
-
     except Exception:
         traceback.print_exc()
         raise HTTPException(
@@ -184,18 +146,13 @@ def create_coaching(data: CoachingRequest, db: Session = Depends(get_db)):
     "/ai/coaching",
     response_model=list[CoachingResponse],
     summary="AI 코칭 목록 조회",
-    description="activity_id를 기준으로 AI 코칭 목록을 조회합니다. activity_id가 없으면 전체 코칭 목록을 조회합니다.",
-    responses={
-        200: {
-            "description": "AI 코칭 목록 조회 성공",
-        },
-        **ERROR_RESPONSES,
-    },
+    description="activity_id를 입력하면 해당 러닝의 코칭만 조회하고, 입력하지 않으면 전체 코칭을 조회합니다.",
+    responses={200: {"description": "AI 코칭 목록 조회 성공"}, **ERROR_RESPONSES},
 )
 def read_coachings(
     activity_id: int | None = Query(
         None,
-        description="러닝 기록 ID. 입력 시 해당 러닝 기록에 연결된 AI 코칭만 조회합니다.",
+        description="러닝 활동 ID",
         example=16,
     ),
     db: Session = Depends(get_db),
@@ -212,18 +169,96 @@ def read_coachings(
 
 
 @app.get(
+    "/ai/coaching/report/{activity_id}",
+    summary="러닝 종료 후 AI 코칭 요약 리포트 조회",
+    description="""
+activity_id 기준으로 해당 러닝 중 생성된 AI 코칭 목록을 종합합니다.
+
+처리 방식:
+1. activity_id에 해당하는 코칭 목록 조회
+2. focus_point 기준으로 그룹화
+3. 많이 발생한 항목 순서대로 정렬
+4. 상위 3개 요약 반환
+""",
+    responses={200: {"description": "AI 코칭 요약 리포트 조회 성공"}, **ERROR_RESPONSES},
+)
+def read_coaching_report(
+    activity_id: int = Path(
+        ...,
+        description="요약할 러닝 활동 ID",
+        example=16,
+    ),
+    db: Session = Depends(get_db),
+):
+    try:
+        coachings = get_ai_coachings(db, activity_id=activity_id)
+
+        if not coachings:
+            raise HTTPException(
+                status_code=404,
+                detail="해당 러닝의 AI 코칭 기록이 없습니다.",
+            )
+
+        focus_count = {}
+
+        for coaching in coachings:
+            focus = coaching.focus_point or "기타 코칭"
+
+            if focus not in focus_count:
+                focus_count[focus] = {
+                    "count": 0,
+                    "feedback_text": coaching.feedback_text,
+                    "rec_exercise": coaching.rec_exercise,
+                }
+
+            focus_count[focus]["count"] += 1
+
+        sorted_focus = sorted(
+            focus_count.items(),
+            key=lambda item: item[1]["count"],
+            reverse=True,
+        )
+
+        items = []
+
+        for focus, value in sorted_focus[:3]:
+            items.append(
+                {
+                    "title": focus,
+                    "description": value["feedback_text"],
+                    "rec_exercise": value["rec_exercise"],
+                    "count": value["count"],
+                }
+            )
+
+        return {
+            "activity_id": activity_id,
+            "summary_title": "오늘의 분석",
+            "total_coaching_count": len(coachings),
+            "items": items,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="AI 코칭 요약 리포트 조회 중 서버 오류가 발생했습니다.",
+        )
+
+
+@app.get(
     "/ai/coaching/{coaching_id}",
     response_model=CoachingResponse,
     summary="AI 코칭 단건 조회",
-    description="coaching_id를 기준으로 AI 코칭 기록 1개를 조회합니다.",
-    responses={
-        200: {
-            "description": "AI 코칭 단건 조회 성공",
-        },
-        **ERROR_RESPONSES,
-    },
+    responses={200: {"description": "AI 코칭 단건 조회 성공"}, **ERROR_RESPONSES},
 )
-def read_coaching(coaching_id: int, db: Session = Depends(get_db)):
+def read_coaching(
+    coaching_id: int = Path(..., description="AI 코칭 ID", example=1),
+    db: Session = Depends(get_db),
+):
     try:
         coaching = get_ai_coaching(db, coaching_id)
 
@@ -250,17 +285,11 @@ def read_coaching(coaching_id: int, db: Session = Depends(get_db)):
     "/ai/coaching/{coaching_id}",
     response_model=CoachingResponse,
     summary="AI 코칭 수정",
-    description="coaching_id를 기준으로 AI 코칭 기록의 일부 값을 수정합니다.",
-    responses={
-        200: {
-            "description": "AI 코칭 수정 성공",
-        },
-        **ERROR_RESPONSES,
-    },
+    responses={200: {"description": "AI 코칭 수정 성공"}, **ERROR_RESPONSES},
 )
 def update_coaching(
-    coaching_id: int,
-    data: CoachingUpdate,
+    coaching_id: int = Path(..., description="수정할 AI 코칭 ID", example=1),
+    data: CoachingUpdate = Body(...),
     db: Session = Depends(get_db),
 ):
     try:
@@ -288,23 +317,12 @@ def update_coaching(
 @app.delete(
     "/ai/coaching/{coaching_id}",
     summary="AI 코칭 삭제",
-    description="coaching_id를 기준으로 AI 코칭 기록을 삭제합니다.",
-    responses={
-        200: {
-            "description": "AI 코칭 삭제 성공",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "message": "AI 코칭 기록이 삭제되었습니다.",
-                        "coaching_id": 1,
-                    }
-                }
-            },
-        },
-        **ERROR_RESPONSES,
-    },
+    responses={200: {"description": "AI 코칭 삭제 성공"}, **ERROR_RESPONSES},
 )
-def delete_coaching(coaching_id: int, db: Session = Depends(get_db)):
+def delete_coaching(
+    coaching_id: int = Path(..., description="삭제할 AI 코칭 ID", example=1),
+    db: Session = Depends(get_db),
+):
     try:
         coaching = get_ai_coaching(db, coaching_id)
 
