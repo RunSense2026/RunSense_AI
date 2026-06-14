@@ -1,9 +1,9 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
 
 class CoachingRequest(BaseModel):
-    activity_id: int = Field(..., description="러닝 활동 ID")
+    activity_id: int = Field(..., description="러닝 활동 ID, 요약 리포트를 생성할 러닝 활동 ID")
 
     pace: float = Field(..., description="페이스")
     heart_rate: int = Field(..., description="심박수")
@@ -44,3 +44,26 @@ class CoachingWithVoiceResponse(BaseModel):
 class TTSResponse(BaseModel):
     text: str
     voice_file: str
+
+class CoachingReportCreateRequest(BaseModel):
+    activity_id: int = Field(
+        ...,
+        description="요약 리포트를 생성할 러닝 활동 ID",
+        example=16,
+    )   
+
+class CoachingReportItem(BaseModel):
+    title: str
+    description: str
+    rec_exercise: str
+    count: int   
+
+class CoachingReportResponse(BaseModel):
+    report_id: Optional[int] = None
+    activity_id: int
+    summary_title: str
+    total_coaching_count: int
+    items: list[CoachingReportItem]
+
+    class Config:
+        from_attributes = True

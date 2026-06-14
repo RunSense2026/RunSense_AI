@@ -12,13 +12,16 @@ if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY 환경변수가 없습니다.")
 
 genai.configure(api_key=GEMINI_API_KEY)
+
 model = genai.GenerativeModel("gemini-2.5-flash-lite")
+
 
 def clean_text(text: str) -> str:
     text = text.strip()
     text = re.sub(r"[*#`]", "", text)
     text = text.replace('"', "").replace("'", "")
     return " ".join(text.split())
+
 
 def create_coaching_message(data, analysis: dict) -> str:
     prompt = build_coaching_prompt(data, analysis)

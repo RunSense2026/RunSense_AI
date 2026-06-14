@@ -1,5 +1,6 @@
 from run_model import AICoaching
 from run_schema import CoachingUpdate
+from run_model import AICoachingReport
 
 
 def create_ai_coaching(db, data, feedback_text: str, focus_point: str, rec_exercise: str):
@@ -16,6 +17,33 @@ def create_ai_coaching(db, data, feedback_text: str, focus_point: str, rec_exerc
 
     return coaching
 
+def create_ai_coaching_report(
+    db,
+    activity_id: int,
+    summary_title: str,
+    total_coaching_count: int,
+    items: list,
+):
+    report = AICoachingReport(
+        activity_id=activity_id,
+        summary_title=summary_title,
+        total_coaching_count=total_coaching_count,
+        items_json=items,
+    )
+
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+
+    return report
+
+
+def get_ai_coaching_report_by_activity_id(db, activity_id: int):
+    return (
+        db.query(AICoachingReport)
+        .filter(AICoachingReport.activity_id == activity_id)
+        .first()
+    )
 
 def get_ai_coaching(db, coaching_id: int):
     return db.query(AICoaching).filter(AICoaching.coaching_id == coaching_id).first()

@@ -21,6 +21,8 @@ def build_coaching_prompt(data, analysis: dict) -> str:
 - 40자 이내
 - 러닝 중 바로 들을 수 있는 코칭만 출력
 - 사용자가 바로 행동할 수 있는 말로 출력
+- 문제점과 개선 포인트를 기반으로 코칭 문장을 만들어야 함
+- 사용자의 입장에서 거부감이 들지 않도록 존댓말로 출력
 
 러닝 데이터:
 - activity_id: {data.activity_id}
