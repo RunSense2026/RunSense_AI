@@ -113,7 +113,6 @@ def health():
 러닝 데이터와 족압 센서 데이터를 기반으로 AI 코칭을 생성합니다.
 
 입력 데이터:
-- activity_id: running_activity 테이블에 존재하는 러닝 ID
 - pace: 페이스
 - heart_rate: 심박수
 - cadence: 케이던스
@@ -135,74 +134,71 @@ hitmap_json 형식:
 1. 러닝 데이터 분석
 2. Gemini 기반 코칭 생성
 3. TTS 음성 파일 생성
-4. ai_coaching 테이블 저장
 5. 코칭 결과 반환
 """,
     responses={
-    200: {
-        "description": "AI 코칭 생성 성공",
-        "content": {
-            "application/json": {
-                "example": {
-                    "coaching_id": 1,
-                    "activity_id": 16,
-                    "feedback_text": "호흡을 안정시키고 페이스를 낮춰보세요.",
-                    "focus_point": "호흡 안정과 페이스 조절",
-                    "rec_exercise": "가벼운 조깅과 호흡 조절 훈련",
-                    "voice_file": "/audio/coach_xxxx.mp3",
+        200: {
+            "description": "실시간 AI 코칭 생성 성공",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "coaching_id": 1,
+                        "feedback_text": "호흡을 안정시키고 페이스를 낮춰보세요.",
+                        "focus_point": "호흡 안정과 페이스 조절",
+                        "rec_exercise": "가벼운 조깅과 호흡 조절 훈련",
+                        "voice_file": "/audio/coach_xxxx.mp3",
+                    }
                 }
-            }
+            },
+        },
+        422: {
+            "description": "요청 Body 검증 실패",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": [
+                            {
+                                "type": "int_parsing",
+                                "loc": ["body", "heart_rate"],
+                                "msg": "Input should be a valid integer",
+                                "input": "높음",
+                            }
+                        ]
+                    }
+                }
+            },
+        },
+        500: {
+            "description": "서버 내부 오류",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "실시간 AI 코칭 생성 중 서버 오류가 발생했습니다."
+                    }
+                }
+            },
         },
     },
-    400: {
-        "description": "잘못된 요청 데이터",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "존재하지 않는 activity_id입니다. running_activity를 먼저 생성해주세요."
-                }
-            }
-        },
-    },
-    404: {
-        "description": "요청한 데이터를 찾을 수 없음",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "해당 러닝의 AI 코칭 기록이 없습니다."
-                }
-            }
-        },
-    },
-    422: {
-        "description": "요청 Body 검증 실패",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": [
-                        {
-                            "type": "int_parsing",
-                            "loc": ["body", "heart_rate"],
-                            "msg": "Input should be a valid integer",
-                            "input": "높음"
-                        }
-                    ]
-                }
-            }
-        },
-    },
-    500: {
-        "description": "서버 내부 오류",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "AI 코칭 생성 중 서버 오류가 발생했습니다."
-                }
-            }
-        },
-    },
-}
 )
+def create_coaching(data: CoachingRequest):
+    try:
+        analysis = analyze_run(data)
+        feedback_text = create_coaching_message(data, analysis)
+        voice_file = create_tts_file(feedback_text)
+
+        return {
+            "feedback_text": feedback_text,
+            "focus_point": analysis["focus_point"],
+            "rec_exercise": analysis["rec_exercise"],
+            "voice_file": voice_file,
+        }
+
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="실시간 AI 코칭 생성 중 서버 오류가 발생했습니다.",
+        )
 def create_coaching(data: CoachingRequest, db: Session = Depends(get_db)):
     try:
         analysis = analyze_run(data)
@@ -521,7 +517,7 @@ def update_coaching(
     responses={200: {"description": "AI 코칭 삭제 성공"}, **ERROR_RESPONSES},
 )
 def delete_coaching(
-    coaching_id: int = Path(..., description="삭제할 AI 코칭 ID", example=1),
+    coaching_id: int = Path(..., description="삭제할 AI 코칭 ID", example=[1]),
     db: Session = Depends(get_db),
 ):
     try:
