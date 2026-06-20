@@ -14,7 +14,6 @@ class CoachingRequest(BaseModel):
 
 
 class CoachingWithVoiceResponse(BaseModel):
-    coaching_id: int
     feedback_text: str
     focus_point: Optional[str] = None
     rec_exercise: Optional[str] = None

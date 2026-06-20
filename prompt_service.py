@@ -25,7 +25,6 @@ def build_coaching_prompt(data, analysis: dict) -> str:
 - 사용자의 입장에서 거부감이 들지 않도록 존댓말로 출력
 
 러닝 데이터:
-- activity_id: {data.activity_id}
 - 페이스: {data.pace}
 - 심박수: {data.heart_rate}
 - 케이던스: {data.cadence}
