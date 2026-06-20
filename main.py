@@ -142,7 +142,6 @@ hitmap_json 형식:
             "content": {
                 "application/json": {
                     "example": {
-                        "coaching_id": 1,
                         "feedback_text": "호흡을 안정시키고 페이스를 낮춰보세요.",
                         "focus_point": "호흡 안정과 페이스 조절",
                         "rec_exercise": "가벼운 조깅과 호흡 조절 훈련",
@@ -199,45 +198,6 @@ def create_coaching(data: CoachingRequest):
             status_code=500,
             detail="실시간 AI 코칭 생성 중 서버 오류가 발생했습니다.",
         )
-def create_coaching(data: CoachingRequest, db: Session = Depends(get_db)):
-    try:
-        analysis = analyze_run(data)
-        feedback_text = create_coaching_message(data, analysis)
-        voice_file = create_tts_file(feedback_text)
-
-        coaching = create_ai_coaching(
-            db=db,
-            data=data,
-            feedback_text=feedback_text,
-            focus_point=analysis["focus_point"],
-            rec_exercise=analysis["rec_exercise"],
-        )
-
-        return {
-            "coaching_id": coaching.coaching_id,
-            "activity_id": coaching.activity_id,
-            "feedback_text": coaching.feedback_text,
-            "focus_point": coaching.focus_point,
-            "rec_exercise": coaching.rec_exercise,
-            "voice_file": voice_file,
-        }
-
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="존재하지 않는 activity_id입니다. running_activity를 먼저 생성해주세요.",
-        )
-
-    except HTTPException:
-        raise
-
-    except Exception:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail="AI 코칭 생성 중 서버 오류가 발생했습니다.",
-        )
 
 
 @app.get(
@@ -271,58 +231,58 @@ def read_coachings(
     response_model=CoachingReportResponse,
     summary="AI 코칭 요약 리포트 생성 및 저장",
     responses={
-    200: {
-        "description": "AI 코칭 리포트 생성 및 저장 성공",
-        "content": {
-            "application/json": {
-                "example": {
-                    "report_id": 1,
-                    "activity_id": 16,
-                    "summary_title": "오늘의 분석",
-                    "total_coaching_count": 13,
-                    "items": [
-                        {
-                            "title": "호흡 안정과 페이스 조절",
-                            "description": "호흡을 안정시키고 페이스를 낮춰보세요.",
-                            "rec_exercise": "가벼운 조깅과 호흡 조절 훈련",
-                            "count": 4
-                        }
-                    ]
+        200: {
+            "description": "AI 코칭 리포트 생성 및 저장 성공",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "report_id": 1,
+                        "activity_id": 16,
+                        "summary_title": "오늘의 분석",
+                        "total_coaching_count": 13,
+                        "items": [
+                            {
+                                "title": "호흡 안정과 페이스 조절",
+                                "description": "호흡을 안정시키고 페이스를 낮춰보세요.",
+                                "rec_exercise": "가벼운 조깅과 호흡 조절 훈련",
+                                "count": 4,
+                            }
+                        ],
+                    }
                 }
-            }
-        }
+            },
+        },
+        400: {
+            "description": "리포트 저장 실패",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "리포트 저장 중 DB 제약조건 오류가 발생했습니다."
+                    }
+                }
+            },
+        },
+        404: {
+            "description": "코칭 데이터 없음",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "해당 러닝의 AI 코칭 기록이 없습니다."
+                    }
+                }
+            },
+        },
+        500: {
+            "description": "서버 내부 오류",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "AI 코칭 요약 리포트 생성 중 서버 오류가 발생했습니다."
+                    }
+                }
+            },
+        },
     },
-    400: {
-        "description": "리포트 저장 실패",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "리포트 저장 중 DB 제약조건 오류가 발생했습니다."
-                }
-            }
-        }
-    },
-    404: {
-        "description": "코칭 데이터 없음",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "해당 러닝의 AI 코칭 기록이 없습니다."
-                }
-            }
-        }
-    },
-    500: {
-        "description": "서버 내부 오류",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "AI 코칭 요약 리포트 생성 중 서버 오류가 발생했습니다."
-                }
-            }
-        }
-    }
-}
 )
 def create_coaching_report(
     data: CoachingReportCreateRequest,
@@ -377,7 +337,6 @@ def create_coaching_report(
             status_code=500,
             detail="AI 코칭 요약 리포트 생성 중 서버 오류가 발생했습니다.",
         )
-    
 
 
 @app.get(
@@ -385,30 +344,28 @@ def create_coaching_report(
     response_model=CoachingReportResponse,
     summary="저장된 AI 코칭 요약 리포트 조회",
     responses={
-    200: {
-        "description": "저장된 AI 코칭 리포트 조회 성공"
-    },
-    404: {
-        "description": "저장된 리포트 없음",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "저장된 AI 코칭 리포트가 없습니다."
+        200: {"description": "저장된 AI 코칭 리포트 조회 성공"},
+        404: {
+            "description": "저장된 리포트 없음",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "저장된 AI 코칭 리포트가 없습니다."
+                    }
                 }
-            }
-        }
-    },
-    500: {
-        "description": "서버 내부 오류",
-        "content": {
-            "application/json": {
-                "example": {
-                    "detail": "AI 코칭 요약 리포트 조회 중 서버 오류가 발생했습니다."
+            },
+        },
+        500: {
+            "description": "서버 내부 오류",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "AI 코칭 요약 리포트 조회 중 서버 오류가 발생했습니다."
+                    }
                 }
-            }
-        }
-    }
-}
+            },
+        },
+    },
 )
 def read_coaching_report(
     activity_id: int = Path(
@@ -517,7 +474,7 @@ def update_coaching(
     responses={200: {"description": "AI 코칭 삭제 성공"}, **ERROR_RESPONSES},
 )
 def delete_coaching(
-    coaching_id: int = Path(..., description="삭제할 AI 코칭 ID", example=[1]),
+    coaching_id: int = Path(..., description="삭제할 AI 코칭 ID", example=1),
     db: Session = Depends(get_db),
 ):
     try:
