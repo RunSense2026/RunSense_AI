@@ -11,7 +11,7 @@ from run_schema import (
     CoachingUpdate,
     CoachingWithVoiceResponse,
     CoachingReportCreateRequest,
-    CoachingReportResponse,
+    CoachingReportResponse ,
 )
 from analysis_service import analyze_run
 from llm_service import create_coaching_message

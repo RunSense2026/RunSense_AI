@@ -53,6 +53,30 @@ def fallback_message(analysis: dict) -> str:
 
     if "피로 누적 가능성" in issues:
         return "페이스를 낮추고 호흡을 안정시켜보세요."
+    
+    if "뒤꿈치 착지 습관 강함" in issues:
+        return "뒤꿈치 충격을 줄이고 부드럽게 착지해보세요."
+
+    if "뒤꿈치 압력 집중" in issues:
+        return "뒤꿈치 충격을 줄여보세요."
+
+    if "뒤꿈치 중심 착지" in issues:
+        return "발 전체로 부드럽게 착지해보세요."
+
+    if "앞발 압력 집중" in issues:
+        return "앞발 부담을 줄이고 보폭을 안정시켜보세요."
+
+    if "앞발 중심 착지" in issues:
+        return "보폭을 조금 줄이고 리듬을 유지해보세요."
+
+    if "중족부 압력 낮음" in issues:
+        return "발 전체를 활용해 부드럽게 착지해보세요."
+
+    if "앞발 좌우 압력 차이 큼" in issues:
+        return "앞발 좌우 균형을 맞춰보세요."
+
+    if "중족부 좌우 압력 차이 큼" in issues:
+        return "발 중앙 균형을 안정적으로 유지해보세요."
 
     if "심박수 높음" in issues:
         return "심박이 높습니다. 호흡을 안정시켜보세요."
@@ -78,28 +102,6 @@ def fallback_message(analysis: dict) -> str:
     if "회외 경향" in issues:
         return "발바닥 전체로 균형 있게 착지해보세요."
 
-    if "뒤꿈치 착지 습관 강함" in issues:
-        return "뒤꿈치 충격을 줄이고 부드럽게 착지해보세요."
-
-    if "뒤꿈치 압력 집중" in issues:
-        return "뒤꿈치 충격을 줄여보세요."
-
-    if "뒤꿈치 중심 착지" in issues:
-        return "발 전체로 부드럽게 착지해보세요."
-
-    if "앞발 압력 집중" in issues:
-        return "앞발 부담을 줄이고 보폭을 안정시켜보세요."
-
-    if "앞발 중심 착지" in issues:
-        return "보폭을 조금 줄이고 리듬을 유지해보세요."
-
-    if "중족부 압력 낮음" in issues:
-        return "발 전체를 활용해 부드럽게 착지해보세요."
-
-    if "앞발 좌우 압력 차이 큼" in issues:
-        return "앞발 좌우 균형을 맞춰보세요."
-
-    if "중족부 좌우 압력 차이 큼" in issues:
-        return "발 중앙 균형을 안정적으로 유지해보세요."
+    
 
     return "현재 리듬을 안정적으로 유지해보세요."
