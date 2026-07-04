@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, Path, Body
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 import traceback
 
@@ -11,7 +10,7 @@ from run_schema import (
     CoachingUpdate,
     CoachingWithVoiceResponse,
     CoachingReportCreateRequest,
-    CoachingReportResponse ,
+    CoachingReportResponse,
 )
 from analysis_service import analyze_run
 from llm_service import create_coaching_message
@@ -21,8 +20,6 @@ from crud import (
     get_ai_coachings,
     update_ai_coaching,
     delete_ai_coaching,
-    create_ai_coaching_report,
-    get_ai_coaching_report_by_activity_id,
 )
 
 
@@ -45,7 +42,7 @@ ERROR_RESPONSES = {
 }
 
 
-def build_coaching_report(activity_id: int, coaching_logs):
+def build_coaching_report(coaching_logs):
     if not coaching_logs:
         raise HTTPException(
             status_code=400,
@@ -85,7 +82,6 @@ def build_coaching_report(activity_id: int, coaching_logs):
         )
 
     return {
-        "activity_id": activity_id,
         "summary_title": "오늘의 분석",
         "total_coaching_count": len(coaching_logs),
         "items": items,
@@ -107,23 +103,20 @@ def health():
     response_model=CoachingWithVoiceResponse,
     summary="AI 러닝 코칭 생성",
     description="""
-러닝 데이터와 족압 센서 데이터를 기반으로 AI 코칭을 생성합니다.
+러닝 데이터와 양발 족압 센서 데이터를 기반으로 AI 코칭을 생성합니다.
 
 입력 데이터:
 - pace: 페이스
 - heart_rate: 심박수
 - cadence: 케이던스
-- foot_side: left 또는 right
-- pronation_type: overpronation 또는 supination
-- heel_strike_rate: 뒤꿈치 착지 비율
-- hitmap_json: 5개 FSR 센서 데이터
-
+- left_foot: 왼발 회내/회외 상태, 뒤꿈치 착지 비율, hitmap
+- right_foot: 오른발 회내/회외 상태, 뒤꿈치 착지 비율, hitmap
 
 처리 과정:
 1. 러닝 데이터 분석
-2. Gemini 기반 코칭 생성
+2. Gemini/Groq 기반 코칭 생성
 3. TTS 음성 파일 생성
-5. 코칭 결과 반환
+4. 코칭 결과 반환
 """,
     responses={
         200: {
@@ -218,15 +211,14 @@ def read_coachings(
 @app.post(
     "/ai/coaching/report",
     response_model=CoachingReportResponse,
-    summary="AI 코칭 요약 리포트 생성 및 저장",
+    summary="AI 코칭 요약 리포트 생성",
+    description="전달받은 AI 코칭 목록을 기반으로 요약 리포트를 생성합니다. 저장은 수행하지 않습니다.",
     responses={
         200: {
-            "description": "AI 코칭 리포트 생성 및 저장 성공",
+            "description": "AI 코칭 리포트 생성 성공",
             "content": {
                 "application/json": {
                     "example": {
-                        "report_id": 1,
-                        "activity_id": 16,
                         "summary_title": "오늘의 분석",
                         "total_coaching_count": 4,
                         "items": [
@@ -235,14 +227,20 @@ def read_coachings(
                                 "description": "왼발 압력을 줄이고 양발 균형을 맞춰보세요.",
                                 "rec_exercise": "오른발 지지 안정화와 좌우 밸런스 훈련",
                                 "count": 2,
-                            }
+                            },
+                            {
+                                "title": "케이던스 유지",
+                                "description": "보폭을 줄이고 발걸음을 가볍게 해보세요.",
+                                "rec_exercise": "짧은 보폭 러닝과 리듬 훈련",
+                                "count": 1,
+                            },
                         ],
                     }
                 }
             },
         },
         400: {
-            "description": "리포트 저장 실패 또는 코칭 목록 없음",
+            "description": "코칭 목록 없음",
             "content": {
                 "application/json": {
                     "example": {
@@ -263,143 +261,22 @@ def read_coachings(
         },
     },
 )
-def create_coaching_report(
-    data: CoachingReportCreateRequest,
-    db: Session = Depends(get_db),
-):
+def create_coaching_report(data: CoachingReportCreateRequest):
     try:
-        existing_report = get_ai_coaching_report_by_activity_id(
-            db,
-            data.activity_id,
-        )
-
-        if existing_report:
-            return {
-                "report_id": existing_report.report_id,
-                "activity_id": existing_report.activity_id,
-                "summary_title": existing_report.summary_title,
-                "total_coaching_count": existing_report.total_coaching_count,
-                "items": existing_report.items_json,
-            }
-
         report_data = build_coaching_report(
-            activity_id=data.activity_id,
             coaching_logs=data.coaching_logs,
         )
 
-        report = create_ai_coaching_report(
-            db=db,
-            activity_id=report_data["activity_id"],
-            summary_title=report_data["summary_title"],
-            total_coaching_count=report_data["total_coaching_count"],
-            items=report_data["items"],
-        )
-
-        return {
-            "report_id": report.report_id,
-            "activity_id": report.activity_id,
-            "summary_title": report.summary_title,
-            "total_coaching_count": report.total_coaching_count,
-            "items": report.items_json,
-        }
+        return report_data
 
     except HTTPException:
         raise
-
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="리포트 저장 중 DB 제약조건 오류가 발생했습니다.",
-        )
 
     except Exception:
         traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail="AI 코칭 요약 리포트 생성 중 서버 오류가 발생했습니다.",
-    )
-
-
-    except HTTPException:
-        raise
-
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="리포트 저장 중 DB 제약조건 오류가 발생했습니다.",
-        )
-
-    except Exception:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail="AI 코칭 요약 리포트 생성 중 서버 오류가 발생했습니다.",
-        )
-
-
-@app.get(
-    "/ai/coaching/report/{activity_id}",
-    response_model=CoachingReportResponse,
-    summary="저장된 AI 코칭 요약 리포트 조회",
-    responses={
-        200: {"description": "저장된 AI 코칭 리포트 조회 성공"},
-        404: {
-            "description": "저장된 리포트 없음",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "저장된 AI 코칭 리포트가 없습니다."
-                    }
-                }
-            },
-        },
-        500: {
-            "description": "서버 내부 오류",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "AI 코칭 요약 리포트 조회 중 서버 오류가 발생했습니다."
-                    }
-                }
-            },
-        },
-    },
-)
-def read_coaching_report(
-    activity_id: int = Path(
-        ...,
-        description="조회할 러닝 활동 ID",
-        example=16,
-    ),
-    db: Session = Depends(get_db),
-):
-    try:
-        report = get_ai_coaching_report_by_activity_id(db, activity_id)
-
-        if report is None:
-            raise HTTPException(
-                status_code=404,
-                detail="저장된 AI 코칭 리포트가 없습니다.",
-            )
-
-        return {
-            "report_id": report.report_id,
-            "activity_id": report.activity_id,
-            "summary_title": report.summary_title,
-            "total_coaching_count": report.total_coaching_count,
-            "items": report.items_json,
-        }
-
-    except HTTPException:
-        raise
-
-    except Exception:
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail="AI 코칭 요약 리포트 조회 중 서버 오류가 발생했습니다.",
         )
 
 

@@ -68,12 +68,7 @@ class CoachingLogItem(BaseModel):
 
 
 class CoachingReportCreateRequest(BaseModel):
-    activity_id: int = Field(
-        ...,
-        description="요약 리포트를 저장할 러닝 활동 ID",
-        example=16
-    )
-    coaching_logs: List[CoachingLogItem] = Field(
+    coaching_logs: list[CoachingLogItem] = Field(
         ...,
         description="요약 리포트 생성에 사용할 AI 코칭 목록"
     )
@@ -82,16 +77,11 @@ class CoachingReportCreateRequest(BaseModel):
 class CoachingReportItem(BaseModel):
     title: str
     description: str
-    rec_exercise: str
+    rec_exercise: Optional[str] = None
     count: int
 
 
 class CoachingReportResponse(BaseModel):
-    report_id: Optional[int] = None
-    activity_id: int
     summary_title: str
     total_coaching_count: int
     items: list[CoachingReportItem]
-
-    class Config:
-        from_attributes = True
