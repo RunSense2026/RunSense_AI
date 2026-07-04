@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
 
@@ -52,11 +52,30 @@ class TTSResponse(BaseModel):
     voice_file: str
 
 
+class CoachingLogItem(BaseModel):
+    feedback_text: str = Field(
+        ...,
+        example="왼발 압력을 줄이고 양발 균형을 맞춰보세요."
+    )
+    focus_point: Optional[str] = Field(
+        None,
+        example="왼발 하중 편중 개선"
+    )
+    rec_exercise: Optional[str] = Field(
+        None,
+        example="오른발 지지 안정화와 좌우 밸런스 훈련"
+    )
+
+
 class CoachingReportCreateRequest(BaseModel):
     activity_id: int = Field(
         ...,
-        description="요약 리포트를 생성할 러닝 활동 ID",
-        example=16,
+        description="요약 리포트를 저장할 러닝 활동 ID",
+        example=16
+    )
+    coaching_logs: List[CoachingLogItem] = Field(
+        ...,
+        description="요약 리포트 생성에 사용할 AI 코칭 목록"
     )
 
 

@@ -45,18 +45,16 @@ ERROR_RESPONSES = {
 }
 
 
-def build_coaching_report(activity_id: int, db: Session):
-    coachings = get_ai_coachings(db, activity_id=activity_id)
-
-    if not coachings:
+def build_coaching_report(activity_id: int, coaching_logs):
+    if not coaching_logs:
         raise HTTPException(
-            status_code=404,
-            detail="해당 러닝의 AI 코칭 기록이 없습니다.",
+            status_code=400,
+            detail="요약 리포트를 생성할 AI 코칭 목록이 없습니다.",
         )
 
     focus_count = {}
 
-    for coaching in coachings:
+    for coaching in coaching_logs:
         focus = coaching.focus_point or "기타 코칭"
 
         if focus not in focus_count:
@@ -89,7 +87,7 @@ def build_coaching_report(activity_id: int, db: Session):
     return {
         "activity_id": activity_id,
         "summary_title": "오늘의 분석",
-        "total_coaching_count": len(coachings),
+        "total_coaching_count": len(coaching_logs),
         "items": items,
     }
 
@@ -230,13 +228,13 @@ def read_coachings(
                         "report_id": 1,
                         "activity_id": 16,
                         "summary_title": "오늘의 분석",
-                        "total_coaching_count": 13,
+                        "total_coaching_count": 4,
                         "items": [
                             {
-                                "title": "호흡 안정과 페이스 조절",
-                                "description": "호흡을 안정시키고 페이스를 낮춰보세요.",
-                                "rec_exercise": "가벼운 조깅과 호흡 조절 훈련",
-                                "count": 4,
+                                "title": "왼발 하중 편중 개선",
+                                "description": "왼발 압력을 줄이고 양발 균형을 맞춰보세요.",
+                                "rec_exercise": "오른발 지지 안정화와 좌우 밸런스 훈련",
+                                "count": 2,
                             }
                         ],
                     }
@@ -244,21 +242,11 @@ def read_coachings(
             },
         },
         400: {
-            "description": "리포트 저장 실패",
+            "description": "리포트 저장 실패 또는 코칭 목록 없음",
             "content": {
                 "application/json": {
                     "example": {
-                        "detail": "리포트 저장 중 DB 제약조건 오류가 발생했습니다."
-                    }
-                }
-            },
-        },
-        404: {
-            "description": "코칭 데이터 없음",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "해당 러닝의 AI 코칭 기록이 없습니다."
+                        "detail": "요약 리포트를 생성할 AI 코칭 목록이 없습니다."
                     }
                 }
             },
@@ -294,7 +282,10 @@ def create_coaching_report(
                 "items": existing_report.items_json,
             }
 
-        report_data = build_coaching_report(data.activity_id, db)
+        report_data = build_coaching_report(
+            activity_id=data.activity_id,
+            coaching_logs=data.coaching_logs,
+        )
 
         report = create_ai_coaching_report(
             db=db,
@@ -311,6 +302,24 @@ def create_coaching_report(
             "total_coaching_count": report.total_coaching_count,
             "items": report.items_json,
         }
+
+    except HTTPException:
+        raise
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="리포트 저장 중 DB 제약조건 오류가 발생했습니다.",
+        )
+
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail="AI 코칭 요약 리포트 생성 중 서버 오류가 발생했습니다.",
+    )
+
 
     except HTTPException:
         raise
