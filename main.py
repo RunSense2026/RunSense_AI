@@ -17,7 +17,6 @@ from analysis_service import analyze_run
 from llm_service import create_coaching_message
 from tts_service import create_tts_file
 from crud import (
-    create_ai_coaching,
     get_ai_coaching,
     get_ai_coachings,
     update_ai_coaching,
@@ -121,14 +120,6 @@ def health():
 - heel_strike_rate: 뒤꿈치 착지 비율
 - hitmap_json: 5개 FSR 센서 데이터
 
-hitmap_json 형식:
-{
-  "forefoot_left": 20,
-  "forefoot_right": 25,
-  "midfoot_left": 18,
-  "midfoot_right": 17,
-  "heel": 20
-}
 
 처리 과정:
 1. 러닝 데이터 분석
