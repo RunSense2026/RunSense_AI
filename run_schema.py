@@ -2,16 +2,26 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 
+class FootHitmap(BaseModel):
+    forefoot_left: float = Field(..., example=20)
+    forefoot_right: float = Field(..., example=15)
+    midfoot_left: float = Field(..., example=10)
+    midfoot_right: float = Field(..., example=8)
+    heel: float = Field(..., example=70)
+
+
+class FootData(BaseModel):
+    pronation_type: Optional[str] = Field(None, example="overpronation")
+    heel_strike_rate: Optional[float] = Field(None, example=85)
+    hitmap: FootHitmap
+
+
 class CoachingRequest(BaseModel):
-    pace: float = Field(..., description="페이스")
-    heart_rate: int = Field(..., description="심박수")
-    cadence: int = Field(..., description="케이던스")
-
-    foot_side: Optional[str] = Field(None, description="발 방향 left/right")
-    pronation_type: Optional[str] = Field(None, description="회내/회외 유형")
-    heel_strike_rate: Optional[float] = Field(None, description="뒤꿈치 착지 비율")
-    hitmap_json: Optional[Dict[str, Any]] = Field(None, description="족압 히트맵 데이터")
-
+    pace: float = Field(..., example=5.3)
+    heart_rate: int = Field(..., example=180)
+    cadence: int = Field(..., example=150)
+    left_foot: FootData
+    right_foot: FootData
 
 class CoachingWithVoiceResponse(BaseModel):
     feedback_text: str
