@@ -1,6 +1,9 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, Path, Body
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from lthr_router import (
+    router as lthr_router,
+)
 import traceback
 
 from db import Base, engine, get_db
@@ -31,6 +34,9 @@ app = FastAPI(
     description="러닝 데이터와 족압 센서 데이터를 기반으로 AI 코칭 및 TTS 음성 응답을 제공하는 서버입니다.",
 )
 
+app.include_router(
+    lthr_router
+)
 app.mount("/audio", StaticFiles(directory="audio"), name="audio")
 
 
