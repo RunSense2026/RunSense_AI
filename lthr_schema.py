@@ -54,30 +54,42 @@ class LTHRAnalyzeRequest(BaseModel):
     )
 
     model_config = ConfigDict(
-    json_schema_extra={
-        "example": {
-            "heart_rate_samples": [
-                {"elapsed_seconds": 0, "heart_rate": 135},
-                {"elapsed_seconds": 120, "heart_rate": 140},
-                {"elapsed_seconds": 240, "heart_rate": 145},
-                {"elapsed_seconds": 360, "heart_rate": 148},
-                {"elapsed_seconds": 480, "heart_rate": 150},
-                {"elapsed_seconds": 600, "heart_rate": 152},
-                {"elapsed_seconds": 720, "heart_rate": 154},
-                {"elapsed_seconds": 840, "heart_rate": 156},
-                {"elapsed_seconds": 960, "heart_rate": 158},
-                {"elapsed_seconds": 1080, "heart_rate": 160},
-                {"elapsed_seconds": 1200, "heart_rate": 162},
-                {"elapsed_seconds": 1320, "heart_rate": 164},
-                {"elapsed_seconds": 1440, "heart_rate": 166},
-                {"elapsed_seconds": 1560, "heart_rate": 168},
-                {"elapsed_seconds": 1680, "heart_rate": 170},
-                {"elapsed_seconds": 1800, "heart_rate": 172},
-            ],
-            "previous_lthr": 158,
+        json_schema_extra={
+            "example": {
+                "heart_rate_samples": [
+                    {
+                        "elapsed_seconds": 0,
+                        "heart_rate": 135,
+                    },
+                    {
+                        "elapsed_seconds": 300,
+                        "heart_rate": 145,
+                    },
+                    {
+                        "elapsed_seconds": 600,
+                        "heart_rate": 151,
+                    },
+                    {
+                        "elapsed_seconds": 900,
+                        "heart_rate": 157,
+                    },
+                    {
+                        "elapsed_seconds": 1200,
+                        "heart_rate": 160,
+                    },
+                    {
+                        "elapsed_seconds": 1500,
+                        "heart_rate": 163,
+                    },
+                    {
+                        "elapsed_seconds": 1800,
+                        "heart_rate": 165,
+                    },
+                ],
+                "previous_lthr": 158,
+            }
         }
-    }
-)
+    )
 
 
 # =========================================================
@@ -118,9 +130,6 @@ class LTHRAnalyzeResponse(BaseModel):
 
 # =========================================================
 # LTHR AI 분석 요청
-#
-# /lthr/analyze 응답을 그대로
-# /lthr/coaching으로 전달할 수 있게 함
 # =========================================================
 
 class LTHRCoachingRequest(LTHRAnalyzeResponse):

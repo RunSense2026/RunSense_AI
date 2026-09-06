@@ -1,13 +1,142 @@
-def build_coaching_prompt(data, analysis: dict) -> str:
-    issues = ", ".join(analysis.get("issues", []))
-    focus_point = analysis.get("focus_point", "현재 리듬 유지")
-    rec_exercise = analysis.get("rec_exercise", "가벼운 지속주")
+def _format_profile_value(
+    value,
+    suffix: str = "",
+) -> str:
+    """
+    프로필 값이 없으면 '미설정'으로 표시합니다.
+    """
+    if value is None:
+        return "미설정"
+
+    return f"{value}{suffix}"
+
+
+def build_coaching_prompt(
+    data,
+    analysis: dict,
+) -> str:
+
+
+    issues = ", ".join(
+        analysis.get(
+            "issues",
+            [],
+        )
+    )
+
+    focus_point = analysis.get(
+        "focus_point",
+        "현재 리듬 유지",
+    )
+
+    rec_exercise = analysis.get(
+        "rec_exercise",
+        "가벼운 지속주",
+    )
+
 
     left = data.left_foot
     right = data.right_foot
 
     left_hitmap = left.hitmap
     right_hitmap = right.hitmap
+
+
+    profile = getattr(
+        data,
+        "profile",
+        None,
+    )
+
+    if profile is not None:
+
+        age = _format_profile_value(
+            getattr(
+                profile,
+                "age",
+                None,
+            ),
+            "세",
+        )
+
+        weight = _format_profile_value(
+            getattr(
+                profile,
+                "weight",
+                None,
+            ),
+            "kg",
+        )
+
+        resting_heart_rate = (
+            _format_profile_value(
+                getattr(
+                    profile,
+                    "resting_heart_rate",
+                    None,
+                ),
+                "bpm",
+            )
+        )
+
+        lthr = _format_profile_value(
+            getattr(
+                profile,
+                "lthr",
+                None,
+            ),
+            "bpm",
+        )
+
+    else:
+
+        age = "미설정"
+        weight = "미설정"
+        resting_heart_rate = "미설정"
+        lthr = "미설정"
+
+
+    profile_context = analysis.get(
+        "profile_context",
+        {},
+    )
+
+    lthr_ratio = profile_context.get(
+        "lthr_ratio"
+    )
+
+    training_zone = profile_context.get(
+        "training_zone"
+    )
+
+    training_zone_name = (
+        profile_context.get(
+            "training_zone_name"
+        )
+    )
+
+    heart_rate_context = (
+        profile_context.get(
+            "heart_rate_context"
+        )
+    )
+
+
+    if lthr_ratio is None:
+        lthr_ratio_text = "계산 불가"
+    else:
+        lthr_ratio_text = (
+            f"{lthr_ratio}%"
+        )
+
+    if training_zone is None:
+        training_zone = "판단 불가"
+
+    if training_zone_name is None:
+        training_zone_name = "판단 불가"
+
+    if heart_rate_context is None:
+        heart_rate_context = "판단 불가"
 
     prompt = f"""
 너는 러닝 중인 사용자에게 실시간으로 짧게 코칭해주는 AI 러닝 코치다.
@@ -16,6 +145,18 @@ def build_coaching_prompt(data, analysis: dict) -> str:
 - 페이스: {data.pace}
 - 심박수: {data.heart_rate}
 - 케이던스: {data.cadence}
+
+사용자 프로필:
+- 나이: {age}
+- 체중: {weight}
+- 안정시 심박수: {resting_heart_rate}
+- 최근 LTHR: {lthr}
+
+프로필 기반 현재 심박 분석:
+- LTHR 대비 현재 심박 비율: {lthr_ratio_text}
+- 현재 Training Zone: {training_zone}
+- Training Zone 의미: {training_zone_name}
+- 현재 심박 상태: {heart_rate_context}
 
 왼발 데이터:
 - 회내/회외 상태: {left.pronation_type}
@@ -49,57 +190,147 @@ def build_coaching_prompt(data, analysis: dict) -> str:
 - 제목 금지
 - 따옴표 금지
 - 40자 이내
+- 존댓말로 출력
 - 러닝 중 바로 들을 수 있는 코칭만 출력
-- 사용자가 바로 행동할 수 있는 말로 출력 
+- 사용자가 바로 행동할 수 있는 말로 출력
+
+코칭 판단 규칙:
+- 기존 러닝 데이터와 족압 분석 결과를 우선적으로 사용한다.
+- 사용자 프로필은 코칭을 개인화하기 위한 참고 정보로 사용한다.
+- LTHR가 존재하면 현재 심박의 개인 운동 강도를 판단하는 중요한 기준으로 사용한다.
+- 현재 심박이 개인 LTHR에 근접하거나 초과하면 심박 강도를 우선적으로 고려한다.
+- LTHR 정보가 없으면 기존 심박수 및 러닝 분석 기준으로 코칭한다.
+- 안정시 심박수는 평상시 심박 참고 정보로만 사용한다.
+- 안정시 심박수만으로 운동 강도를 단정하지 않는다.
+- 나이는 보조 정보로만 사용한다.
+- 체중 자체를 좋거나 나쁘다고 평가하지 않는다.
+- 체중이나 나이만으로 운동 능력을 단정하지 않는다.
+- 미설정된 프로필 정보는 추측하지 않는다.
 - 분석 결과 중 현재 러닝에 가장 직접적인 문제만 선택해 코칭한다.
+- 여러 문제가 있어도 가장 중요한 한 가지 또는 밀접한 두 가지까지만 반영한다.
 - 선택한 문제를 문장에 구체적으로 포함한다.
-- 문제점과 개선 포인트를 기반으로 코칭 문장을 만들어야 함
-- 사용자의 입장에서 거부감이 들지 않도록 존댓말로 출력
+- 문제점과 개선 포인트를 기반으로 코칭 문장을 만들어야 한다.
+- 사용자의 입장에서 거부감이 들지 않도록 자연스럽게 출력한다.
 """.strip()
 
     return prompt
 
 
-def fallback_message(analysis: dict) -> str:
-    issues = analysis.get("issues", [])
+def fallback_message(
+    analysis: dict,
+) -> str:
+
+    issues = analysis.get(
+        "issues",
+        [],
+    )
+
+
+    profile_context = analysis.get(
+        "profile_context",
+        {},
+    )
+
+    training_zone = (
+        profile_context.get(
+            "training_zone"
+        )
+    )
+
+    # 개인 LTHR 이상 고강도
+    if training_zone == "Z5":
+        return (
+            "심박이 개인 역치를 넘었습니다. "
+            "페이스를 낮춰보세요."
+        )
+
+    # 개인 LTHR 근처
+    if training_zone == "Z4":
+        return (
+            "심박이 역치에 가깝습니다. "
+            "호흡과 페이스를 유지해보세요."
+        )
 
     if "피로 누적 가능성" in issues:
-        return "무리하지 말고 페이스를 낮춰보세요."
+        return (
+            "무리하지 말고 페이스를 낮춰보세요."
+        )
 
     if "심박수 높음" in issues:
-        return "호흡을 안정시키고 페이스를 낮춰보세요."
+        return (
+            "호흡을 안정시키고 페이스를 낮춰보세요."
+        )
 
     if "케이던스 낮음" in issues:
-        return "보폭을 줄이고 발걸음을 가볍게 해보세요."
+        return (
+            "보폭을 줄이고 발걸음을 가볍게 해보세요."
+        )
 
     if "발목 안정성 저하 가능성" in issues:
-        return "발목이 흔들리지 않게 착지해보세요."
+        return (
+            "발목이 흔들리지 않게 착지해보세요."
+        )
 
     if "양발 하중 불균형" in issues:
-        return "양발에 고르게 힘을 싣고 달려보세요."
+        return (
+            "양발에 고르게 힘을 싣고 달려보세요."
+        )
 
     if "왼발 하중 편중" in issues:
-        return "왼발 힘을 줄이고 균형을 맞춰보세요."
+        return (
+            "왼발 힘을 줄이고 균형을 맞춰보세요."
+        )
 
     if "오른발 하중 편중" in issues:
-        return "오른발 힘을 줄이고 균형을 맞춰보세요."
+        return (
+            "오른발 힘을 줄이고 균형을 맞춰보세요."
+        )
 
-    if "왼발 과회내 경향" in issues or "오른발 과회내 경향" in issues:
-        return "발목이 안쪽으로 무너지지 않게 해보세요."
+    if (
+        "왼발 과회내 경향" in issues
+        or "오른발 과회내 경향" in issues
+    ):
+        return (
+            "발목이 안쪽으로 무너지지 않게 해보세요."
+        )
 
-    if "왼발 회외 경향" in issues or "오른발 회외 경향" in issues:
-        return "발바닥 전체로 부드럽게 착지해보세요."
+    if (
+        "왼발 회외 경향" in issues
+        or "오른발 회외 경향" in issues
+    ):
+        return (
+            "발바닥 전체로 부드럽게 착지해보세요."
+        )
 
     if "뒤꿈치 착지 습관 강함" in issues:
-        return "뒤꿈치 충격을 줄이고 보폭을 줄여보세요."
+        return (
+            "뒤꿈치 충격을 줄이고 보폭을 줄여보세요."
+        )
 
-    if "왼발 뒤꿈치 중심 착지" in issues or "오른발 뒤꿈치 중심 착지" in issues:
-        return "뒤꿈치 충격을 줄이고 부드럽게 착지하세요."
+    if (
+        "왼발 뒤꿈치 중심 착지" in issues
+        or "오른발 뒤꿈치 중심 착지" in issues
+    ):
+        return (
+            "뒤꿈치 충격을 줄이고 부드럽게 착지하세요."
+        )
 
-    if "왼발 앞발 중심 착지" in issues or "오른발 앞발 중심 착지" in issues:
-        return "앞발 부담을 줄이고 보폭을 안정시켜보세요."
+    if (
+        "왼발 앞발 중심 착지" in issues
+        or "오른발 앞발 중심 착지" in issues
+    ):
+        return (
+            "앞발 부담을 줄이고 보폭을 안정시켜보세요."
+        )
 
-    if "왼발 중족부 압력 낮음" in issues or "오른발 중족부 압력 낮음" in issues:
-        return "발 전체를 활용해 부드럽게 착지해보세요."
+    if (
+        "왼발 중족부 압력 낮음" in issues
+        or "오른발 중족부 압력 낮음" in issues
+    ):
+        return (
+            "발 전체를 활용해 부드럽게 착지해보세요."
+        )
 
-    return "현재 리듬을 안정적으로 유지해보세요."
+    return (
+        "현재 리듬을 안정적으로 유지해보세요."
+    )
