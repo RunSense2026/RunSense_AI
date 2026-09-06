@@ -2,6 +2,40 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
 
+class UserProfileContext(BaseModel):
+
+    age: Optional[int] = Field(
+        None,
+        ge=1,
+        le=120,
+        description="사용자 나이",
+        examples=[24],
+    )
+
+    weight: Optional[float] = Field(
+        None,
+        ge=20,
+        le=300,
+        description="사용자 체중(kg)",
+        examples=[70.0],
+    )
+
+    resting_heart_rate: Optional[int] = Field(
+        None,
+        ge=30,
+        le=150,
+        description="안정시 심박수(BPM)",
+        examples=[58],
+    )
+
+    lthr: Optional[int] = Field(
+        None,
+        ge=30,
+        le=250,
+        description="가장 최근 LTHR 측정값(BPM)",
+        examples=[162],
+    )
+
 class FootHitmap(BaseModel):
     forefoot_left: float = Field(..., example=20)
     forefoot_right: float = Field(..., example=15)
@@ -22,6 +56,11 @@ class CoachingRequest(BaseModel):
     cadence: int = Field(..., example=150)
     left_foot: FootData
     right_foot: FootData
+
+    profile: Optional[UserProfileContext] = Field(
+        None,
+        description="마이페이지 프로필 기반 개인화 코칭 정보",
+    )
 
 class CoachingWithVoiceResponse(BaseModel):
     feedback_text: str
