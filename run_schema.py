@@ -3,6 +3,13 @@ from pydantic import BaseModel, Field
 
 
 class UserProfileContext(BaseModel):
+    """
+    백엔드가 마이페이지에서 조회해서
+    AI 코칭 요청에 함께 전달하는 사용자 프로필입니다.
+
+    FastAPI에서는 저장하지 않고
+    AI 코칭 개인화에만 사용합니다.
+    """
 
     age: Optional[int] = Field(
         None,
@@ -10,6 +17,14 @@ class UserProfileContext(BaseModel):
         le=120,
         description="사용자 나이",
         examples=[24],
+    )
+
+    height: Optional[float] = Field(
+        None,
+        ge=100,
+        le=250,
+        description="사용자 키(cm)",
+        examples=[170.0],
     )
 
     weight: Optional[float] = Field(
@@ -24,7 +39,7 @@ class UserProfileContext(BaseModel):
         None,
         ge=30,
         le=150,
-        description="안정시 심박수(BPM)",
+        description="사용자 안정시 심박수(BPM)",
         examples=[58],
     )
 

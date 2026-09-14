@@ -16,7 +16,6 @@ def build_coaching_prompt(
     analysis: dict,
 ) -> str:
 
-
     issues = ", ".join(
         analysis.get(
             "issues",
@@ -34,13 +33,15 @@ def build_coaching_prompt(
         "가벼운 지속주",
     )
 
-
     left = data.left_foot
     right = data.right_foot
 
     left_hitmap = left.hitmap
     right_hitmap = right.hitmap
 
+    # =====================================================
+    # 사용자 프로필
+    # =====================================================
 
     profile = getattr(
         data,
@@ -57,6 +58,16 @@ def build_coaching_prompt(
                 None,
             ),
             "세",
+        )
+
+        # 추가
+        height = _format_profile_value(
+            getattr(
+                profile,
+                "height",
+                None,
+            ),
+            "cm",
         )
 
         weight = _format_profile_value(
@@ -91,10 +102,14 @@ def build_coaching_prompt(
     else:
 
         age = "미설정"
+        height = "미설정"
         weight = "미설정"
         resting_heart_rate = "미설정"
         lthr = "미설정"
 
+    # =====================================================
+    # 프로필 기반 심박 분석
+    # =====================================================
 
     profile_context = analysis.get(
         "profile_context",
@@ -121,9 +136,9 @@ def build_coaching_prompt(
         )
     )
 
-
     if lthr_ratio is None:
         lthr_ratio_text = "계산 불가"
+
     else:
         lthr_ratio_text = (
             f"{lthr_ratio}%"
@@ -148,6 +163,7 @@ def build_coaching_prompt(
 
 사용자 프로필:
 - 나이: {age}
+- 키: {height}
 - 체중: {weight}
 - 안정시 심박수: {resting_heart_rate}
 - 최근 LTHR: {lthr}
@@ -202,9 +218,9 @@ def build_coaching_prompt(
 - LTHR 정보가 없으면 기존 심박수 및 러닝 분석 기준으로 코칭한다.
 - 안정시 심박수는 평상시 심박 참고 정보로만 사용한다.
 - 안정시 심박수만으로 운동 강도를 단정하지 않는다.
-- 나이는 보조 정보로만 사용한다.
-- 체중 자체를 좋거나 나쁘다고 평가하지 않는다.
-- 체중이나 나이만으로 운동 능력을 단정하지 않는다.
+- 나이, 키, 체중은 보조 정보로만 사용한다.
+- 키나 체중 자체를 좋거나 나쁘다고 평가하지 않는다.
+- 키, 체중, 나이만으로 운동 능력을 단정하지 않는다.
 - 미설정된 프로필 정보는 추측하지 않는다.
 - 분석 결과 중 현재 러닝에 가장 직접적인 문제만 선택해 코칭한다.
 - 여러 문제가 있어도 가장 중요한 한 가지 또는 밀접한 두 가지까지만 반영한다.
@@ -224,7 +240,6 @@ def fallback_message(
         "issues",
         [],
     )
-
 
     profile_context = analysis.get(
         "profile_context",

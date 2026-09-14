@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 from lthr_router import (
     router as lthr_router,
 )
+from profile_coaching_service import (
+    analyze_profile_context,
+)
 import traceback
 
 from db import Base, engine, get_db
@@ -107,30 +110,52 @@ def health():
 @app.post(
     "/ai/coaching",
     response_model=CoachingWithVoiceResponse,
-    summary="AI 러닝 코칭 생성",
+    summary="프로필 기반 AI 러닝 코칭 생성",
     description="""
-러닝 데이터와 양발 족압 센서 데이터를 기반으로 AI 코칭을 생성합니다.
+현재 러닝 데이터, 양발 족압 센서 데이터,
+사용자 프로필 정보를 기반으로 개인화 AI 코칭을 생성합니다.
 
-입력 데이터:
-- pace: 페이스
-- heart_rate: 심박수
-- cadence: 케이던스
-- left_foot: 왼발 회내/회외 상태, 뒤꿈치 착지 비율, hitmap
-- right_foot: 오른발 회내/회외 상태, 뒤꿈치 착지 비율, hitmap
+### 러닝 데이터
+- `pace`: 현재 페이스(초/km)
+- `heart_rate`: 현재 심박수(BPM)
+- `cadence`: 현재 케이던스(SPM)
 
-처리 과정:
-1. 러닝 데이터 분석
-2. Gemini/Groq 기반 코칭 생성
-3. TTS 음성 파일 생성
-4. 코칭 결과 반환
+### 족압 데이터
+- `left_foot`: 왼발 분석 데이터
+- `right_foot`: 오른발 분석 데이터
+- `pronation_type`: 회내/회외 상태
+- `heel_strike_rate`: 뒤꿈치 착지 비율
+- `hitmap`: 5개 영역 족압 데이터
+
+### 사용자 프로필
+- `age`: 나이
+- `height`: 키(cm)
+- `weight`: 체중(kg)
+- `resting_heart_rate`: 안정시 심박수(BPM)
+- `lthr`: 최근 LTHR(BPM)
+
+`profile` 및 프로필 내부 값은 선택값입니다.
+
+LTHR가 존재하는 경우 현재 심박과 비교하여
+Training Zone과 개인 심박 강도를 계산하고
+AI 코칭에 반영합니다.
+
+### 처리 과정
+1. 러닝 및 족압 데이터 분석
+2. 프로필 기반 심박 분석
+3. Gemini/Groq 기반 AI 코칭 생성
+4. TTS 음성 생성
+5. 코칭 결과 반환
+
+FastAPI에서는 사용자 프로필을 별도로 저장하지 않습니다.
 """,
     responses={
         200: {
-            "description": "실시간 AI 코칭 생성 성공",
+            "description": "AI 코칭 생성 성공",
             "content": {
                 "application/json": {
                     "example": {
-                        "feedback_text": "호흡을 안정시키고 페이스를 낮춰보세요.",
+                        "feedback_text": "심박이 높으니 페이스를 조금 낮춰보세요.",
                         "focus_point": "호흡 안정과 페이스 조절",
                         "rec_exercise": "가벼운 조깅과 호흡 조절 훈련",
                         "voice_file": "/audio/coach_xxxx.mp3",
@@ -138,25 +163,42 @@ def health():
                 }
             },
         },
+
+        400: {
+            "description": "요청 값은 전달되었으나 서비스 로직상 처리할 수 없는 데이터",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "잘못된 러닝 데이터입니다."
+                    }
+                }
+            },
+        },
+
         422: {
-            "description": "요청 Body 검증 실패",
+            "description": "요청 Body의 타입, 필수 구조 또는 값 범위 검증 실패",
             "content": {
                 "application/json": {
                     "example": {
                         "detail": [
                             {
-                                "type": "int_parsing",
-                                "loc": ["body", "heart_rate"],
-                                "msg": "Input should be a valid integer",
-                                "input": "높음",
+                                "type": "greater_than_equal",
+                                "loc": [
+                                    "body",
+                                    "profile",
+                                    "height"
+                                ],
+                                "msg": "Input should be greater than or equal to 100",
+                                "input": 50
                             }
                         ]
                     }
                 }
             },
         },
+
         500: {
-            "description": "서버 내부 오류",
+            "description": "AI 코칭 생성 중 서버 내부 오류",
             "content": {
                 "application/json": {
                     "example": {
@@ -167,26 +209,74 @@ def health():
         },
     },
 )
-def create_coaching(data: CoachingRequest):
+def create_coaching(
+    data: CoachingRequest,
+):
+
     try:
-        analysis = analyze_run(data)
-        feedback_text = create_coaching_message(data, analysis)
-        voice_file = create_tts_file(feedback_text)
+
+        analysis = analyze_run(
+            data
+        )
+
+
+
+        profile_analysis = (
+            analyze_profile_context(
+                data
+            )
+        )
+
+
+        analysis[
+            "profile_context"
+        ] = profile_analysis
+
+
+        feedback_text = (
+            create_coaching_message(
+                data,
+                analysis,
+            )
+        )
+
+
+        voice_file = (
+            create_tts_file(
+                feedback_text
+            )
+        )
+
 
         return {
-            "feedback_text": feedback_text,
-            "focus_point": analysis["focus_point"],
-            "rec_exercise": analysis["rec_exercise"],
-            "voice_file": voice_file,
+            "feedback_text":
+                feedback_text,
+
+            "focus_point":
+                analysis[
+                    "focus_point"
+                ],
+
+            "rec_exercise":
+                analysis[
+                    "rec_exercise"
+                ],
+
+            "voice_file":
+                voice_file,
         }
 
     except Exception:
+
         traceback.print_exc()
+
         raise HTTPException(
             status_code=500,
-            detail="실시간 AI 코칭 생성 중 서버 오류가 발생했습니다.",
+            detail=(
+                "실시간 AI 코칭 생성 중 "
+                "서버 오류가 발생했습니다."
+            ),
         )
-
 
 @app.get(
     "/ai/coaching",
